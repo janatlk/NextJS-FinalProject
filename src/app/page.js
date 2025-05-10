@@ -3,7 +3,7 @@
 import { useUser } from '../lib/useUser';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-
+import LogoutButton from '../components/LogoutButton';
 export default function HomePage() {
     const { user, loading } = useUser();
     const router = useRouter();
@@ -21,6 +21,7 @@ export default function HomePage() {
         <div style={{ padding: '20px' }}>
             <h1>Добро пожаловать, {user.email}</h1>
             <p>Вы авторизованы!</p>
+            <LogoutButton></LogoutButton>
         </div>
     );
 }

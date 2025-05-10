@@ -1,10 +1,20 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useUser } from '../../lib/useUser';
+import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function ReservePage() {
     const [resources, setResources] = useState([]);
-    const [loading, setLoading] = useState(true);  // Чтобы показать процесс загрузки
+    const { user, loading } = useUser();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!loading && !user) {
+            router.push('/login');
+        }
+    }, [user, loading]);
+
 
     useEffect(() => {
         const fetchResources = async () => {
@@ -15,7 +25,6 @@ export default function ReservePage() {
             } else {
                 setResources(data);
             }
-            setLoading(false);  // Завершаем процесс загрузки
         };
 
         fetchResources();
