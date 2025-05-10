@@ -1,19 +1,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useUser } from '../../lib/useUser';
+import {useAuthRedirect} from "../../lib/useAuthRedirect";
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function ReservePage() {
     const [resources, setResources] = useState([]);
-    const { user, loading } = useUser();
     const router = useRouter();
-
-    useEffect(() => {
-        if (!loading && !user) {
-            router.push('/login');
-        }
-    }, [user, loading]);
+    const { user, loading } = useAuthRedirect();
 
 
     useEffect(() => {

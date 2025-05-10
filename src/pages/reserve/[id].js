@@ -1,128 +1,126 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuthRedirect } from '../../lib/useAuthRedirect';
 
-export default function ResourcePage() {
-    const [resource, setResource] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [reservationData, setReservationData] = useState({
-        start: '',
-        end: '',
-        user: ''
-    });
-
+export default function ReserveDetailPage() {
     const router = useRouter();
-    const { id } = router.query; // Получаем параметр id из URL
+    const { id } = router.query;
+    const { user, loading } = useAuthRedirect();
+
+    const [item, setItem] = useState(null);
+    const [startTime, setStartTime] = useState('');
+    const [endTime, setEndTime] = useState('');
+    const [message, setMessage] = useState('');
 
     useEffect(() => {
-        // Если id еще не получен
-        if (!id) return;
+        if (!id || !user) return;
 
-        const fetchResource = async () => {
+        const fetchItem = async () => {
             const { data, error } = await supabase
                 .from('Items')
                 .select('*')
                 .eq('id', id)
-                .single(); // Мы ожидаем только один объект
+                .single();
 
             if (error) {
-                setError(error.message);
+                console.error('Ошибка загрузки ресурса:', error);
             } else {
-                setResource(data);
+                setItem(data);
             }
-            setLoading(false);
         };
 
-        fetchResource();
-    }, [id]);
+        fetchItem();
+    }, [id, user]);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setReservationData((prev) => ({
-            ...prev,
-            [name]: value
-        }));
-    };
 
-    const handleReservation = async (e) => {
+
+
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const { start, end, user } = reservationData;
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+        const now = new Date();
 
-        if (!start || !end || !user) {
-            setError('Пожалуйста, заполните все поля.');
+        // 1. Проверка: конец позже начала
+        if (end <= start) {
+            setMessage('Время окончания должно быть позже начала.');
             return;
         }
 
-        const { error } = await supabase
+        // 2. Проверка: нельзя бронировать в прошлом
+        if (start < now) {
+            setMessage('Нельзя бронировать время в прошлом.');
+            return;
+        }
+
+        // 3. Проверка: конфликтов с другими бронями
+        const { data: existing, error: conflictError } = await supabase
             .from('ItemsToReserve')
-            .insert([
-                {
-                    Item: id,
-                    User: user,
-                    start_time: start,
-                    end_time: end,
-                }
-            ]);
+            .select('*')
+            .eq('Item', Number(id))
+            .or(`and(start_time.lt.${endTime},end_time.gt.${startTime})`);
+
+        if (conflictError) {
+            console.error('Ошибка при проверке конфликта:', conflictError);
+            setMessage('Ошибка при проверке конфликта.');
+            return;
+        }
+
+        if (existing.length > 0) {
+            setMessage('Выбранное время уже занято. Пожалуйста, выберите другое.');
+            return;
+        }
+
+        // 4. Запись в таблицу
+        const { error } = await supabase.from('ItemsToReserve').insert({
+            Item: Number(id),
+            User: user.email,
+            start_time: startTime,
+            end_time: endTime,
+        });
 
         if (error) {
-            setError('Ошибка при создании бронирования: ' + error.message);
+            console.error('Ошибка при создании бронирования:', error);
+            setMessage('Ошибка при создании бронирования.');
         } else {
-            alert('Ресурс успешно забронирован!');
-            router.push('/reserve');
+            setMessage('Бронирование успешно!');
         }
     };
 
-    if (loading) {
-        return <div>Загрузка...</div>;
-    }
 
-    if (error) {
-        return <div>Ошибка: {error}</div>;
-    }
 
-    if (!resource) {
-        return <div>Ресурс не найден.</div>;
-    }
+
+
+    if (loading || !item) return <p>Загрузка...</p>;
 
     return (
         <div style={{ padding: '20px' }}>
-            <h1>{resource.name}</h1>
-            <p><strong>Тип:</strong> {resource.type}</p>
-            <p><strong>Описание:</strong> {resource.description}</p>
+            <h1>Бронирование: {item.Title}</h1>
 
-            <h2>Забронировать ресурс</h2>
-            <form onSubmit={handleReservation}>
-                <div>
-                    <label>Имя пользователя:</label>
-                    <input
-                        type="text"
-                        name="user"
-                        value={reservationData.user}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div>
-                    <label>Дата начала:</label>
-                    <input
-                        type="datetime-local"
-                        name="start"
-                        value={reservationData.start}
-                        onChange={handleChange}
-                    />
-                </div>
-                <div>
-                    <label>Дата окончания:</label>
-                    <input
-                        type="datetime-local"
-                        name="end"
-                        value={reservationData.end}
-                        onChange={handleChange}
-                    />
-                </div>
+            <form onSubmit={handleSubmit}>
+                <label>Начало бронирования:</label><br />
+                <input
+                    type="datetime-local"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    required
+                /><br />
+
+                <label>Конец бронирования:</label><br />
+                <input
+                    type="datetime-local"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    required
+                /><br /><br />
+
                 <button type="submit">Забронировать</button>
             </form>
+
+            {message && <p>{message}</p>}
         </div>
     );
 }
