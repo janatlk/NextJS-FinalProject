@@ -1,10 +1,26 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
 
-export default function Home() {
-  return (
-    <div className={styles.page}>
-      <h1>Main page</h1>
-    </div>
-  );
+import { useUser } from '../lib/useUser';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
+export default function HomePage() {
+    const { user, loading } = useUser();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!loading && !user) {
+            router.push('/login');
+        }
+    }, [user, loading]);
+
+    if (loading) return <p>Загрузка...</p>;
+    if (!user) return null; // пока редирект
+
+    return (
+        <div style={{ padding: '20px' }}>
+            <h1>Добро пожаловать, {user.email}</h1>
+            <p>Вы авторизованы!</p>
+        </div>
+    );
 }
