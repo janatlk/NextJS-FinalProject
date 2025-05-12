@@ -19,7 +19,7 @@ export default function HomePage() {
 
     return (
         <div style={{ padding: '20px' }}>
-            <h1>Добро пожаловать, {user.email}</h1>
+            <h1>Добро пожаловать, {user.email} {user.id}</h1>
             <p>Вы авторизованы!</p>
             <LogoutButton></LogoutButton>
         </div>
