@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useUser } from '../../lib/useUser';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
+import Navbar from "@/components/Navbar";
 
 export default function AdminPage() {
     const { user, loading } = useUser();
@@ -102,6 +103,7 @@ export default function AdminPage() {
                     </tbody>
                 </table>
             )}
+            <Navbar />
         </div>
     );
 }
