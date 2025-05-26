@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { useUser } from '../../lib/useUser';
 import { useRouter } from 'next/router';
+import {Alert, Box, Button, Card, CardActions, CardContent, Container, Typography} from "@mui/material";
+import Navbar from "@/components/Navbar";
 
 export default function Profile() {
     const { user, loading } = useUser();
@@ -54,26 +56,71 @@ export default function Profile() {
     }
 
     return (
-        <div style={{ padding: '20px' }}>
-            <h1>Личный кабинет</h1>
-            {message && <p>{message}</p>}
-            <h3>Мои бронирования:</h3>
-            {reservations.length === 0 ? (
-                <p>У вас нет бронирований.</p>
-            ) : (
-                <ul>
-                    {reservations.map((reservation) => (
-                        <li key={reservation.id}>
-                            <p>Ресурс: {reservation.Item}</p>
-                            <p>Начало: {new Date(reservation.start_time).toLocaleString()}</p>
-                            <p>Конец: {new Date(reservation.end_time).toLocaleString()}</p>
-                            <button onClick={() => handleDelete(reservation.id)}>
-                                Удалить
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
+        <Container maxWidth="sm" sx={{ pt: 4, pb: 4 }}>
+            <Navbar />
+            <Box sx={{ mt: 4 }}>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3, textAlign: 'center' }}>
+                    Личный кабинет
+                </Typography>
+
+                {message && (
+                    <Alert
+                        severity={message.includes('успешно') ? 'success' : 'error'}
+                        sx={{ mb: 2, borderRadius: '10px' }}
+                    >
+                        {message}
+                    </Alert>
+                )}
+
+                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+                    Мои бронирования:
+                </Typography>
+
+                {reservations.length === 0 ? (
+                    <Typography variant="body1" sx={{ textAlign: 'center', color: 'text.secondary' }}>
+                        У вас нет бронирований.
+                    </Typography>
+                ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {reservations.map((reservation) => (
+                            <Card
+                                key={reservation.id}
+                                sx={{
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                    borderRadius: '10px',
+                                    backgroundColor: '#fff',
+                                }}
+                            >
+                                <CardContent>
+                                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                                        Ресурс ID: {reservation.Item}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Начало: {new Date(reservation.start_time).toLocaleString()}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Конец: {new Date(reservation.end_time).toLocaleString()}
+                                    </Typography>
+                                </CardContent>
+                                <CardActions sx={{ justifyContent: 'flex-end', p: 2 }}>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        color="error"
+                                        sx={{
+                                            borderRadius: '8px',
+                                            textTransform: 'none',
+                                        }}
+                                        onClick={() => handleDelete(reservation.id)}
+                                    >
+                                        Удалить
+                                    </Button>
+                                </CardActions>
+                            </Card>
+                        ))}
+                    </Box>
+                )}
+            </Box>
+        </Container>
     );
 }

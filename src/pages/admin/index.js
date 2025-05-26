@@ -1,21 +1,45 @@
+// admin panel enhanced with CRUD
 import { useEffect, useState } from 'react';
 import { useUser } from '../../lib/useUser';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
 import Navbar from "@/components/Navbar";
+import {
+    Box,
+    Button,
+    Container,
+    TextField,
+    Typography,
+    MenuItem,
+    Select,
+    InputLabel,
+    FormControl,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Paper,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle
+} from '@mui/material';
 
 export default function AdminPage() {
     const { user, loading } = useUser();
     const [isAdmin, setIsAdmin] = useState(false);
-    const [currentSection, setCurrentSection] = useState('items');
+    const [currentSection, setCurrentSection] = useState('Items');
     const [data, setData] = useState([]);
     const [message, setMessage] = useState('');
+    const [openDialog, setOpenDialog] = useState(false);
+    const [editItem, setEditItem] = useState(null);
+    const [formState, setFormState] = useState({});
     const router = useRouter();
 
     useEffect(() => {
-        if (!loading && !user) {
-            router.push('/login');
-        }
+        if (!loading && !user) router.push('/login');
     }, [user, loading]);
 
     useEffect(() => {
@@ -27,21 +51,15 @@ export default function AdminPage() {
                     .eq('user_id', user.id)
                     .single();
 
-                if (data && data.role === 'admin') {
-                    setIsAdmin(true);
-                } else {
-                    router.push('/');
-                }
+                if (data?.role === 'admin') setIsAdmin(true);
+                else router.push('/');
             };
-
             checkAdmin();
         }
     }, [user]);
 
     useEffect(() => {
-        if (isAdmin) {
-            fetchTable(currentSection);
-        }
+        if (isAdmin) fetchTable(currentSection);
     }, [isAdmin, currentSection]);
 
     const fetchTable = async (table) => {
@@ -56,54 +74,112 @@ export default function AdminPage() {
 
     const handleDelete = async (id) => {
         const { error } = await supabase.from(currentSection).delete().eq('id', id);
-        if (error) {
-            setMessage('Ошибка при удалении');
+        if (error) setMessage('Ошибка при удалении');
+        else setData(data.filter(item => item.id !== id));
+    };
+
+    const handleEdit = (row) => {
+        setEditItem(row);
+        setFormState(row);
+        setOpenDialog(true);
+    };
+
+    const handleAddNew = () => {
+        setEditItem(null);
+        setFormState({});
+        setOpenDialog(true);
+    };
+
+    const handleSave = async () => {
+        let result;
+        if (editItem) {
+            result = await supabase.from(currentSection).update(formState).eq('id', editItem.id);
         } else {
-            setData(data.filter(item => item.id !== id));
+            result = await supabase.from(currentSection).insert(formState);
         }
+
+        if (result.error) {
+            console.error(result.error);
+            setMessage('Ошибка при сохранении');
+        } else {
+            setOpenDialog(false);
+            fetchTable(currentSection);
+            setMessage('Сохранено успешно');
+        }
+    };
+
+    const handleChange = (e) => {
+        setFormState({ ...formState, [e.target.name]: e.target.value });
     };
 
     if (loading || !isAdmin) return <p>Загрузка...</p>;
 
     return (
-        <div style={{ padding: '20px' }}>
-            <h1>Админ-панель</h1>
-            <div style={{ marginBottom: '10px' }}>
-                <button onClick={() => setCurrentSection('Items')}>Оборудование</button>
-                <button onClick={() => setCurrentSection('ItemsToReserve')}>Бронирования</button>
-                <button onClick={() => setCurrentSection('adminList')}>Админы</button>
-                <button onClick={() => setCurrentSection('users')}>Пользователи</button>
-            </div>
-
-            <h2>Таблица: {currentSection}</h2>
-            {message && <p>{message}</p>}
-            {data.length === 0 ? (
-                <p>Нет данных.</p>
-            ) : (
-                <table border="1" cellPadding="5" style={{ borderCollapse: 'collapse' }}>
-                    <thead>
-                    <tr>
-                        {Object.keys(data[0]).map((key) => (
-                            <th key={key}>{key}</th>
-                        ))}
-                        <th>Действия</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {data.map((row) => (
-                        <tr key={row.id}>
-                            {Object.keys(row).map((key) => (
-                                <td key={key}>{String(row[key])}</td>
-                            ))}
-                            <td>
-                                <button onClick={() => handleDelete(row.id)}>Удалить</button>
-                            </td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
-            )}
+        <Container maxWidth="lg" sx={{ mt: 4 }}>
             <Navbar />
-        </div>
+            <Typography variant="h4" gutterBottom>Админ-панель</Typography>
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                {['Items', 'ItemsToReserve', 'adminList'].map(section => (
+                    <Button
+                        key={section}
+                        variant={currentSection === section ? 'contained' : 'outlined'}
+                        onClick={() => setCurrentSection(section)}
+                    >{section}</Button>
+                ))}
+            </Box>
+
+            <Button variant="contained" onClick={handleAddNew} sx={{ mb: 2 }}>Добавить</Button>
+            {message && <Typography color="error" variant="body2">{message}</Typography>}
+
+            <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                    <TableHead>
+                        <TableRow>
+                            {data[0] && Object.keys(data[0]).map((key) => (
+                                <TableCell key={key}>{key}</TableCell>
+                            ))}
+                            <TableCell>Действия</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {data.map((row) => (
+                            <TableRow key={row.id}>
+                                {Object.keys(row).map((key) => (
+                                    <TableCell key={key}>{String(row[key])}</TableCell>
+                                ))}
+                                <TableCell>
+                                    <Button onClick={() => handleEdit(row)}>Редактировать</Button>
+                                    <Button onClick={() => handleDelete(row.id)} color="error">Удалить</Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+
+            <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>{editItem ? 'Редактировать' : 'Добавить'} запись</DialogTitle>
+                <DialogContent>
+                    {Object.keys(data[0] || { field: '' }).map((key) => (
+                        key === 'id' && editItem ? null : (
+                            <TextField
+                                key={key}
+                                margin="dense"
+                                name={key}
+                                label={key}
+                                fullWidth
+                                value={formState[key] || ''}
+                                onChange={handleChange}
+                                variant="standard"
+                            />
+                        )
+                    ))}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDialog(false)}>Отмена</Button>
+                    <Button onClick={handleSave} variant="contained">Сохранить</Button>
+                </DialogActions>
+            </Dialog>
+        </Container>
     );
 }

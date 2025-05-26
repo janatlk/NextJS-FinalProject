@@ -2,16 +2,34 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthRedirect } from '../../lib/useAuthRedirect';
+import Navbar from "@/components/Navbar";
+import {Alert, Box, Button, Card, CardContent, Container, TextField, Typography} from "@mui/material";
 
 export default function ReserveDetailPage() {
     const router = useRouter();
     const { id } = router.query;
     const { user, loading } = useAuthRedirect();
+    const [reservations, setReservations] = useState([]);
 
     const [item, setItem] = useState(null);
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
     const [message, setMessage] = useState('');
+
+    const fetchReservations = async () => {
+        const { data, error } = await supabase
+            .from('ItemsToReserve')
+            .select('*')
+            .eq('Item', Number(id))
+            .gt('end_time', new Date().toISOString()) // Показываем только активные бронирования
+            .order('start_time', { ascending: true });
+
+        if (error) {
+            console.error('Ошибка загрузки бронирований:', error);
+        } else {
+            setReservations(data);
+        }
+    };
 
     useEffect(() => {
         if (!id || !user) return;
@@ -29,11 +47,9 @@ export default function ReserveDetailPage() {
                 setItem(data);
             }
         };
-
         fetchItem();
+        fetchReservations();
     }, [id, user]);
-
-
 
 
 
@@ -87,6 +103,7 @@ export default function ReserveDetailPage() {
             setMessage('Ошибка при создании бронирования.');
         } else {
             setMessage('Бронирование успешно!');
+            await fetchReservations();
         }
     };
 
@@ -97,30 +114,96 @@ export default function ReserveDetailPage() {
     if (loading || !item) return <p>Загрузка...</p>;
 
     return (
-        <div style={{ padding: '20px' }}>
-            <h1>Бронирование: {item.Title}</h1>
+        <Container maxWidth="sm" sx={{ pt: 4, pb: 4 }}>
+            <Navbar />
+            <Box sx={{ mt: 4 }}>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3, textAlign: 'center', justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
+                    <p style={{width:'200px'}}>
+                    Бронирование: {item.Title} {item.Type}
+                    </p>
+                </Typography>
 
-            <form onSubmit={handleSubmit}>
-                <label>Начало бронирования:</label><br />
-                <input
-                    type="datetime-local"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    required
-                /><br />
+                <Card sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderRadius: '10px' }}>
+                    <CardContent>
+                        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <TextField
+                                label="Начало бронирования"
+                                type="datetime-local"
+                                value={startTime}
+                                onChange={(e) => setStartTime(e.target.value)}
+                                required
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                        backgroundColor: 'rgba(0,0,0,0.05)',
+                                    },
+                                }}
+                            />
+                            <TextField
+                                label="Конец бронирования"
+                                type="datetime-local"
+                                value={endTime}
+                                onChange={(e) => setEndTime(e.target.value)}
+                                required
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '10px',
+                                        backgroundColor: 'rgba(0,0,0,0.05)',
+                                    },
+                                }}
+                            />
+                            <Button
+                                type="submit"
+                                variant="contained"
+                                sx={{
+                                    backgroundColor: '#3B82F6',
+                                    borderRadius: '8px',
+                                    textTransform: 'none',
+                                    padding: '10px 0',
+                                    mt: 1,
+                                }}
+                            >
+                                Забронировать
+                            </Button>
+                        </Box>
+                    </CardContent>
+                </Card>
 
-                <label>Конец бронирования:</label><br />
-                <input
-                    type="datetime-local"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    required
-                /><br /><br />
-
-                <button type="submit">Забронировать</button>
-            </form>
-
-            {message && <p>{message}</p>}
-        </div>
+                {message && (
+                    <Alert
+                        severity={message.includes('успешно') ? 'success' : 'error'}
+                        sx={{ mt: 2, borderRadius: '10px' }}
+                    >
+                        {message}
+                    </Alert>
+                )}
+            </Box>
+            {reservations.length > 0 && (
+                <Box sx={{ mt: 4 }}>
+                    <Typography variant="h6" sx={{ mb: 2 }}>
+                        Текущие бронирования:
+                    </Typography>
+                    {reservations.map((res) => (
+                        <Card key={res.id} sx={{ mb: 2, backgroundColor: '#f9f9f9', borderRadius: '10px' }}>
+                            <CardContent>
+                                <Typography>
+                                    <strong>Пользователь:</strong> {res.User}
+                                </Typography>
+                                <Typography>
+                                    <strong>С:</strong> {new Date(res.start_time).toLocaleString()}
+                                </Typography>
+                                <Typography>
+                                    <strong>До:</strong> {new Date(res.end_time).toLocaleString()}
+                                </Typography>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </Box>
+            )}
+        </Container>
     );
 }
